@@ -1,0 +1,11 @@
+{
+  "name": "webservice-workspace",
+  "private": true,
+  "workspaces": [
+    "services/auth-service",
+    "gateway"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace services/auth-service && npm run build --workspace gateway"
+  }
+}

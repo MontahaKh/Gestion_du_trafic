@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: webservice
+      POSTGRES_USER: webuser
+      POSTGRES_PASSWORD: webpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  auth-service:
+    build: ./services/auth-service
+    environment:
+      NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      PORT: 4001
+      DATABASE_URL: postgres://webuser:webpass@postgres:5432/webservice
+    ports:
+      - "4001:4001"
+    depends_on:
+      - postgres
+
+  gateway:
+    build: ./gateway
+    environment:
+      NODE_ENV: development
+      AUTH_SERVICE_URL: http://auth-service:4001
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      - auth-service
+
+volumes:
+  db-data:
