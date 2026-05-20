@@ -17,10 +17,11 @@ let AuthService = class AuthService {
         this.nextId = 1;
     }
     async register(name, email, password, role) {
+        const resolvedName = (name === null || name === void 0 ? void 0 : name.trim()) || email.split('@')[0] || email;
         if (this.users.find(u => u.email === email))
             throw new Error('Email already used');
         const hash = await bcrypt.hash(password, 10);
-        const user = { id: this.nextId++, name, email, passwordHash: hash, role: role || 'OPERATOR' };
+        const user = { id: this.nextId++, name: resolvedName, email, passwordHash: hash, role: role || 'OPERATOR' };
         this.users.push(user);
         const token = this.generateToken(user);
         return { token, user: this.safeUser(user) };

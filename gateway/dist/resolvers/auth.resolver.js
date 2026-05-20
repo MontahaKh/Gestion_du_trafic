@@ -48,36 +48,76 @@ __decorate([
 AuthPayload = __decorate([
     (0, graphql_1.ObjectType)()
 ], AuthPayload);
+let RegisterInput = class RegisterInput {
+};
+__decorate([
+    (0, graphql_1.Field)(),
+    __metadata("design:type", String)
+], RegisterInput.prototype, "email", void 0);
+__decorate([
+    (0, graphql_1.Field)(),
+    __metadata("design:type", String)
+], RegisterInput.prototype, "password", void 0);
+__decorate([
+    (0, graphql_1.Field)({ nullable: true }),
+    __metadata("design:type", String)
+], RegisterInput.prototype, "name", void 0);
+__decorate([
+    (0, graphql_1.Field)({ nullable: true }),
+    __metadata("design:type", String)
+], RegisterInput.prototype, "role", void 0);
+RegisterInput = __decorate([
+    (0, graphql_1.InputType)()
+], RegisterInput);
+let LoginInput = class LoginInput {
+};
+__decorate([
+    (0, graphql_1.Field)(),
+    __metadata("design:type", String)
+], LoginInput.prototype, "email", void 0);
+__decorate([
+    (0, graphql_1.Field)(),
+    __metadata("design:type", String)
+], LoginInput.prototype, "password", void 0);
+LoginInput = __decorate([
+    (0, graphql_1.InputType)()
+], LoginInput);
 let AuthResolver = class AuthResolver {
     constructor() {
-        this.authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4001/auth';
+        this.authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4001';
     }
     async me(ctx) {
+        var _a;
         const req = ctx.req;
-        const auth = req.headers.authorization || '';
+        const auth = typeof req.headers.authorization === 'string' ? req.headers.authorization : ((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a[0]) || '';
         if (!auth)
             return null;
-        const resp = await fetch(`${this.authUrl.replace('/auth', '')}/verify`, { headers: { Authorization: auth } });
+        const resp = await fetch(`${this.authUrl}/auth/verify`, { headers: { Authorization: auth } });
         if (!resp.ok)
             return null;
         const body = await resp.json();
         return body.user || body;
     }
-    async register(name, email, password, role) {
-        const resp = await fetch(`${this.authUrl}/register`, {
+    async register(input) {
+        const resp = await fetch(`${this.authUrl}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password, role }),
+            body: JSON.stringify({
+                name: input.name,
+                email: input.email,
+                password: input.password,
+                role: input.role,
+            }),
         });
         if (!resp.ok)
             throw new Error('Register failed');
         return resp.json();
     }
-    async login(email, password) {
-        const resp = await fetch(`${this.authUrl}/login`, {
+    async login(input) {
+        const resp = await fetch(`${this.authUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email: input.email, password: input.password }),
         });
         if (!resp.ok)
             throw new Error('Login failed');
@@ -94,20 +134,16 @@ __decorate([
 ], AuthResolver.prototype, "me", null);
 __decorate([
     (0, graphql_1.Mutation)(() => AuthPayload),
-    __param(0, (0, graphql_1.Args)('name')),
-    __param(1, (0, graphql_1.Args)('email')),
-    __param(2, (0, graphql_1.Args)('password')),
-    __param(3, (0, graphql_1.Args)('role', { nullable: true })),
+    __param(0, (0, graphql_1.Args)('input')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [RegisterInput]),
     __metadata("design:returntype", Promise)
 ], AuthResolver.prototype, "register", null);
 __decorate([
     (0, graphql_1.Mutation)(() => AuthPayload),
-    __param(0, (0, graphql_1.Args)('email')),
-    __param(1, (0, graphql_1.Args)('password')),
+    __param(0, (0, graphql_1.Args)('input')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [LoginInput]),
     __metadata("design:returntype", Promise)
 ], AuthResolver.prototype, "login", null);
 exports.AuthResolver = AuthResolver = __decorate([

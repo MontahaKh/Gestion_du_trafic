@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -6,7 +6,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() body: { name: string; email: string; password: string; role?: string }) {
+  async register(@Body() body: { name?: string; email: string; password: string; role?: string }) {
     return this.authService.register(body.name, body.email, body.password, body.role);
   }
 
@@ -18,7 +18,7 @@ export class AuthController {
   @Get('verify')
   verify(@Req() req: any) {
     const auth = req.headers.authorization;
-    if (!auth) throw new Error('No token');
+    if (!auth) throw new UnauthorizedException('No token');
     const token = auth.split(' ')[1];
     return this.authService.verifyToken(token);
   }

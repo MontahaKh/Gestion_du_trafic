@@ -12,9 +12,10 @@ export class AuthService {
   private nextId = 1;
 
   async register(name: string, email: string, password: string, role?: string) {
+    const resolvedName = name?.trim() || email.split('@')[0] || email;
     if (this.users.find(u => u.email === email)) throw new Error('Email already used');
     const hash = await bcrypt.hash(password, 10);
-    const user: User = { id: this.nextId++, name, email, passwordHash: hash, role: role || 'OPERATOR' };
+    const user: User = { id: this.nextId++, name: resolvedName, email, passwordHash: hash, role: role || 'OPERATOR' };
     this.users.push(user);
     const token = this.generateToken(user);
     return { token, user: this.safeUser(user) };

@@ -1,57 +1,86 @@
-import { Resolver, Mutation, Args, Query, Context, ObjectType, Field } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query, Context, ObjectType, Field, InputType } from '@nestjs/graphql';
 
 @ObjectType()
 class User {
   @Field()
-  id: string;
+  id!: string;
   @Field()
-  name: string;
+  name!: string;
   @Field()
-  email: string;
+  email!: string;
   @Field()
-  role: string;
+  role!: string;
 }
 
 @ObjectType()
 class AuthPayload {
   @Field()
-  token: string;
+  token!: string;
   @Field(() => User)
-  user: User;
+  user!: User;
+}
+
+@InputType()
+class RegisterInput {
+  @Field()
+  email!: string;
+
+  @Field()
+  password!: string;
+
+  @Field({ nullable: true })
+  name?: string;
+
+  @Field({ nullable: true })
+  role?: string;
+}
+
+@InputType()
+class LoginInput {
+  @Field()
+  email!: string;
+
+  @Field()
+  password!: string;
 }
 
 @Resolver()
 export class AuthResolver {
-  private authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4001/auth';
+  private authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4001';
 
   @Query(() => User, { nullable: true })
-  async me(@Context() ctx) {
+  async me(@Context() ctx: { req: { headers: Record<string, string | string[] | undefined> } }) {
     const req = ctx.req;
-    const auth = req.headers.authorization || '';
+    const auth = typeof req.headers.authorization === 'string' ? req.headers.authorization : req.headers.authorization?.[0] || '';
     if (!auth) return null;
-    const resp = await fetch(`${this.authUrl.replace('/auth','')}/verify`, { headers: { Authorization: auth } });
+    const resp = await fetch(`${this.authUrl}/auth/verify`, { headers: { Authorization: auth } });
     if (!resp.ok) return null;
     const body = await resp.json();
     return body.user || body;
   }
 
   @Mutation(() => AuthPayload)
-  async register(@Args('name') name: string, @Args('email') email: string, @Args('password') password: string, @Args('role', { nullable: true }) role: string) {
-    const resp = await fetch(`${this.authUrl}/register`, {
+  async register(@Args('input') input: RegisterInput) {
+    const resp = await fetch(`${this.authUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role }),
+      body: JSON.stringify({
+        name: input.name,
+        email: input.email,
+        password: input.password,
+        role: input.role,
+      }),
     });
     if (!resp.ok) throw new Error('Register failed');
     return resp.json();
   }
 
   @Mutation(() => AuthPayload)
-  async login(@Args('email') email: string, @Args('password') password: string) {
-    const resp = await fetch(`${this.authUrl}/login`, {
+  async login(@Args('input') input: LoginInput) {
+    const resp = await fetch(`${this.authUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: input.email, password: input.password }),
     });
     if (!resp.ok) throw new Error('Login failed');
     return resp.json();

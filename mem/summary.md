@@ -15,3 +15,7 @@
  - Updated: Replaced initial Express skeletons with NestJS TypeScript skeletons for `auth-service` and `gateway`.
  - Added files: TypeScript config, Nest entrypoints (`src/main.ts`), modules, controller/service for auth, and GraphQL resolver in gateway.
  - Added Docker Compose and Dockerfiles for local development: `docker-compose.yml`, service Dockerfiles, and `.env.example`.
+ - Resolved Git unrelated histories by merging `origin/main` into local `main` with `--allow-unrelated-histories` and keeping the project README.
+ - Pushed merged history successfully to GitHub on `main`.
+ - Local launch validated on 2026-05-20: `auth-service` and `gateway` compile and start with `npm run start:dev`.
+ - GraphQL gateway tested successfully with a `register` mutation returning JWT + user payload.

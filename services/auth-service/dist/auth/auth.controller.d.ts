@@ -3,7 +3,7 @@ export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
     register(body: {
-        name: string;
+        name?: string;
         email: string;
         password: string;
         role?: string;

@@ -8,9 +8,11 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const apollo_1 = require("@nestjs/apollo");
 const graphql_1 = require("@nestjs/graphql");
 const path_1 = require("path");
 const auth_resolver_1 = require("./resolvers/auth.resolver");
+const apollo_server_core_1 = require("apollo-server-core");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -18,9 +20,11 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             graphql_1.GraphQLModule.forRoot({
+                driver: apollo_1.ApolloDriver,
                 autoSchemaFile: (0, path_1.join)(process.cwd(), 'src/schema.gql'),
-                playground: true,
+                playground: false,
                 context: ({ req }) => ({ req }),
+                plugins: [(0, apollo_server_core_1.ApolloServerPluginLandingPageLocalDefault)()],
             }),
         ],
         providers: [auth_resolver_1.AuthResolver],
