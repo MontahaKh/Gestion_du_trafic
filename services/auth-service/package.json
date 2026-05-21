@@ -7,9 +7,9 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@nestjs/common": "^9.0.0",
-    "@nestjs/core": "^9.0.0",
-    "@nestjs/platform-express": "^9.0.0",
+    "@nestjs/common": "^11.1.22",
+    "@nestjs/core": "^11.1.22",
+    "@nestjs/platform-express": "^11.1.22",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0",
     "reflect-metadata": "^0.1.13",
