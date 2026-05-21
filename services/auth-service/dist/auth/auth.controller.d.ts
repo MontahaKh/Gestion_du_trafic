@@ -10,7 +10,7 @@ export declare class AuthController {
     }): Promise<{
         token: any;
         user: {
-            id: number;
+            id: string;
             name: string;
             email: string;
             role: string;
@@ -22,7 +22,7 @@ export declare class AuthController {
     }): Promise<{
         token: any;
         user: {
-            id: number;
+            id: string;
             name: string;
             email: string;
             role: string;

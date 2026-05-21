@@ -10,27 +10,51 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const pg_1 = require("pg");
 const JWT_SECRET = process.env.JWT_SECRET || 'changeme_secret';
+const DATABASE_URL = process.env.DATABASE_URL || 'postgres://webuser:webpass@localhost:5432/webservice';
 let AuthService = class AuthService {
     constructor() {
-        this.users = [];
-        this.nextId = 1;
+        this.pool = new pg_1.Pool({ connectionString: DATABASE_URL });
+    }
+    async onModuleInit() {
+        await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'OPERATOR',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    }
+    async onModuleDestroy() {
+        await this.pool.end();
     }
     async register(name, email, password, role) {
-        const resolvedName = (name === null || name === void 0 ? void 0 : name.trim()) || email.split('@')[0] || email;
-        if (this.users.find(u => u.email === email))
+        const normalizedEmail = email.trim().toLowerCase();
+        const resolvedName = (name === null || name === void 0 ? void 0 : name.trim()) || normalizedEmail.split('@')[0] || normalizedEmail;
+        const existing = await this.pool.query('SELECT id FROM users WHERE email = $1 LIMIT 1', [normalizedEmail]);
+        if (existing.rowCount)
             throw new Error('Email already used');
         const hash = await bcrypt.hash(password, 10);
-        const user = { id: this.nextId++, name: resolvedName, email, passwordHash: hash, role: role || 'OPERATOR' };
-        this.users.push(user);
+        const inserted = await this.pool.query(`
+        INSERT INTO users (name, email, password_hash, role)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, name, email, password_hash, role
+      `, [resolvedName, normalizedEmail, hash, role || 'OPERATOR']);
+        const user = inserted.rows[0];
         const token = this.generateToken(user);
         return { token, user: this.safeUser(user) };
     }
     async login(email, password) {
-        const user = this.users.find(u => u.email === email);
+        const normalizedEmail = email.trim().toLowerCase();
+        const result = await this.pool.query('SELECT id, name, email, password_hash, role FROM users WHERE email = $1 LIMIT 1', [normalizedEmail]);
+        const user = result.rows[0];
         if (!user)
             throw new Error('Invalid credentials');
-        const ok = await bcrypt.compare(password, user.passwordHash);
+        const ok = await bcrypt.compare(password, user.password_hash);
         if (!ok)
             throw new Error('Invalid credentials');
         const token = this.generateToken(user);
@@ -50,7 +74,7 @@ let AuthService = class AuthService {
     }
     safeUser(user) {
         const { id, name, email, role } = user;
-        return { id, name, email, role };
+        return { id: String(id), name, email, role };
     }
 };
 exports.AuthService = AuthService;
