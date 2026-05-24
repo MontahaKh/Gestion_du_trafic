@@ -8,10 +8,11 @@ type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 
 type StoredVehicle = {
   id: number;
-  plate_number: string;
+  vin: string;
   model: string | null;
-  status: VehicleStatus;
+  metadata: any | null;
   created_at: Date;
+  updated_at: Date;
 };
 
 type StoredGpsPosition = {
@@ -31,10 +32,11 @@ export class VehicleService implements OnModuleInit, OnModuleDestroy {
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS vehicles (
         id SERIAL PRIMARY KEY,
-        plate_number TEXT NOT NULL UNIQUE,
+        vin TEXT NOT NULL UNIQUE,
         model TEXT,
-        status TEXT NOT NULL DEFAULT 'ACTIVE',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        metadata JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
 
@@ -67,15 +69,16 @@ export class VehicleService implements OnModuleInit, OnModuleDestroy {
 
     const model = input.model?.trim() || null;
     const status = this.resolveVehicleStatus(input.status);
+    const metadata = { status };
 
     try {
       const result = await this.pool.query<StoredVehicle>(
         `
-          INSERT INTO vehicles (plate_number, model, status)
-          VALUES ($1, $2, $3)
+          INSERT INTO vehicles (vin, model, metadata, updated_at)
+          VALUES ($1, $2, $3, NOW())
           RETURNING *
         `,
-        [plateNumber, model, status],
+        [plateNumber, model, metadata],
       );
 
       return this.toVehicle(result.rows[0]);
@@ -178,11 +181,13 @@ export class VehicleService implements OnModuleInit, OnModuleDestroy {
   }
 
   private toVehicle(vehicle: StoredVehicle) {
+    const status = (vehicle.metadata?.status && String(vehicle.metadata.status).toUpperCase()) || 'ACTIVE';
+    const normalizedStatus = this.resolveVehicleStatus(status);
     return {
       id: String(vehicle.id),
-      plateNumber: vehicle.plate_number,
+      plateNumber: vehicle.vin,
       model: vehicle.model,
-      status: vehicle.status,
+      status: normalizedStatus,
       createdAt: vehicle.created_at.toISOString(),
     };
   }

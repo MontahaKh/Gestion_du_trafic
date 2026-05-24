@@ -206,3 +206,159 @@ mutation {
   }
 }
 ```
+
+---
+
+## 6️⃣ TEST VEHICULES (Gestion des véhicules et positions GPS)
+
+### mutation createVehicle (Créer un véhicule)
+```graphql
+mutation {
+  createVehicle(input: {
+    plateNumber: "AB-111-XX"
+    model: "Renault Zoe"
+    status: "ACTIVE"
+  }) {
+    id
+    plateNumber
+    model
+    status
+    createdAt
+  }
+}
+```
+
+### query vehicles (Lister tous les véhicules)
+```graphql
+query {
+  vehicles {
+    id
+    plateNumber
+    model
+    status
+    createdAt
+  }
+}
+```
+
+### query vehicle (Détails d'un véhicule)
+```graphql
+query {
+  vehicle(id: "1") {
+    id
+    plateNumber
+    model
+    status
+    createdAt
+  }
+}
+```
+
+### mutation recordVehiclePosition (Enregistrer une position GPS)
+```graphql
+mutation {
+  recordVehiclePosition(vehicleId: "1", input: {
+    lat: 48.5
+    lng: 2.5
+    speed: 60.0
+  }) {
+    id
+    vehicleId
+    lat
+    lng
+    speed
+    recordedAt
+  }
+}
+```
+
+### query vehiclePositions (Historique des positions GPS)
+```graphql
+query {
+  vehiclePositions(vehicleId: "1", limit: 10) {
+    id
+    vehicleId
+    lat
+    lng
+    speed
+    recordedAt
+  }
+}
+```
+
+---
+
+## 7️⃣ TEST TRAFIC (Zones et métriques de densité)
+
+### mutation createTrafficZone (Créer une zone de trafic)
+```graphql
+mutation {
+  createTrafficZone(input: {
+    name: "Zone Centre"
+    bbox: {
+      minLat: 48.0
+      minLng: 2.0
+      maxLat: 49.0
+      maxLng: 3.0
+    }
+  }) {
+    id
+    name
+    bbox {
+      minLat
+      minLng
+      maxLat
+      maxLng
+    }
+    createdAt
+  }
+}
+```
+
+### query trafficZones (Lister toutes les zones)
+```graphql
+query {
+  trafficZones {
+    id
+    name
+    bbox {
+      minLat
+      minLng
+      maxLat
+      maxLng
+    }
+    createdAt
+  }
+}
+```
+
+### query trafficZone (Détail d'une zone)
+```graphql
+query {
+  trafficZone(id: "1") {
+    id
+    name
+    bbox {
+      minLat
+      minLng
+      maxLat
+      maxLng
+    }
+    createdAt
+  }
+}
+```
+
+### mutation calculateTraffic (Calculer la densité et le niveau de trafic)
+```graphql
+mutation {
+  calculateTraffic(zoneId: "1", windowMinutes: 15) {
+    id
+    zoneId
+    vehicleCount
+    level
+    createdAt
+  }
+}
+```
+

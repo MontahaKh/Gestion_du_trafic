@@ -2,6 +2,18 @@
 
 Gestion des vehicules et positions GPS.
 
+Port local: `4002`
+
+Endpoints MVP:
+
+- `POST /vehicles`: creer un vehicule.
+- `GET /vehicles`: lister les vehicules.
+- `GET /vehicles/:id`: consulter un vehicule.
+- `POST /vehicles/:id/positions`: enregistrer une position GPS.
+- `GET /vehicles/:id/positions?limit=100`: lister l'historique des positions.
+
+- `GET /health`: endpoint de sante.
+
 Run (NestJS TypeScript skeleton):
 
 1. Install dependencies:
