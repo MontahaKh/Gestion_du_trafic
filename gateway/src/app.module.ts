@@ -3,6 +3,8 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { GraphQLModule } from '@nestjs/graphql';
 import { join } from 'path';
 import { AuthResolver } from './resolvers/auth.resolver';
+import { IncidentResolver } from './resolvers/incident.resolver';
+import { NotificationResolver } from './resolvers/notification.resolver';
 
 @Module({
   imports: [
@@ -14,6 +16,6 @@ import { AuthResolver } from './resolvers/auth.resolver';
       // no plugins
     }),
   ],
-  providers: [AuthResolver],
+  providers: [AuthResolver, IncidentResolver, NotificationResolver],
 })
 export class AppModule {}
