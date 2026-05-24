@@ -5,6 +5,8 @@ import { join } from 'path';
 import { AuthResolver } from './resolvers/auth.resolver';
 import { IncidentResolver } from './resolvers/incident.resolver';
 import { NotificationResolver } from './resolvers/notification.resolver';
+import { VehicleResolver } from './resolvers/vehicle.resolver';
+import { TrafficResolver } from './resolvers/traffic.resolver';
 
 @Module({
   imports: [
@@ -16,6 +18,6 @@ import { NotificationResolver } from './resolvers/notification.resolver';
       // no plugins
     }),
   ],
-  providers: [AuthResolver, IncidentResolver, NotificationResolver],
+  providers: [AuthResolver, IncidentResolver, NotificationResolver, VehicleResolver, TrafficResolver],
 })
 export class AppModule {}

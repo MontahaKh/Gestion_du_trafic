@@ -5,9 +5,11 @@
     "services/auth-service",
     "services/incident-service",
     "services/notification-service",
+    "services/vehicle-service",
+    "services/traffic-service",
     "gateway"
   ],
   "scripts": {
-    "build": "npm run build --workspace services/auth-service && npm run build --workspace services/incident-service && npm run build --workspace services/notification-service && npm run build --workspace gateway"
+    "build": "npm run build --workspace services/auth-service && npm run build --workspace services/incident-service && npm run build --workspace services/notification-service && npm run build --workspace services/vehicle-service && npm run build --workspace services/traffic-service && npm run build --workspace gateway"
   }
 }

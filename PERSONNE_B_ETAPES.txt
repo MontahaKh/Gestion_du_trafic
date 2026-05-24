@@ -1,0 +1,232 @@
+PERSONNE B — PLAN D’IMPLEMENTATION (Vehicules + Trafic) — Etape par etape
+Date: 2026-05-24
+
+Objectif MVP
+- Fournir 2 micro-services REST (vehicle-service + traffic-service) avec PostgreSQL.
+- Exposer leurs fonctionnalités via la Gateway GraphQL.
+- Avoir un chemin de démo reproductible (via GraphQL + Docker Compose).
+
+Prerequis (avant de coder)
+- Décider les ports:
+  - vehicle-service: 4002 (proposé)
+  - traffic-service: 4005 (proposé)
+- Décider la métrique de densité:
+  - Option simple (recommandée pour MVP): density = nombre de positions GPS reçues dans une zone sur une fenêtre de temps (ex: 5 min)
+  - Seuils classification:
+    - FAIBLE: density <= 10
+    - MOYEN: 11..30
+    - ELEVE: > 30
+  (Tu peux ajuster les seuils selon vos tests.)
+
+============================================================
+ETAPE 1 — Créer vehicle-service (squelette NestJS)
+============================================================
+1.1 Créer les fichiers de base (copier le style de auth-service)
+- package.json avec scripts: start:dev, build, start
+- tsconfig.json
+- src/main.ts (enableCors, listen PORT)
+- src/app.module.ts
+- module + controller + service: src/vehicle/vehicle.module.ts, vehicle.controller.ts, vehicle.service.ts
+
+1.2 Ajouter les dépendances (comme les autres services)
+- @nestjs/common, @nestjs/core, @nestjs/platform-express
+- pg
+- reflect-metadata, rxjs
+- ts-node-dev, typescript (dev)
+
+1.3 Connexion DB + tables (OnModuleInit)
+Tables minimales (proposées):
+- vehicles
+  - id SERIAL PK
+  - plate_number TEXT UNIQUE NOT NULL
+  - model TEXT
+  - status TEXT NOT NULL DEFAULT 'ACTIVE'
+  - created_at TIMESTAMPTZ DEFAULT NOW()
+- gps_positions
+  - id SERIAL PK
+  - vehicle_id INT FK -> vehicles(id)
+  - lat DOUBLE PRECISION NOT NULL
+  - lng DOUBLE PRECISION NOT NULL
+  - speed DOUBLE PRECISION NULL
+  - recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+============================================================
+ETAPE 2 — Implémenter les endpoints REST Vehicules
+============================================================
+2.1 Endpoints MVP (routes)
+A. CRUD véhicule
+- POST /vehicles
+  input: { plateNumber, model?, status? }
+  output: vehicle
+- GET /vehicles
+  output: vehicle[]
+- GET /vehicles/:id
+  output: vehicle
+
+B. Positions GPS
+- POST /vehicles/:id/positions
+  input: { lat, lng, speed?, recordedAt? }
+  output: position
+- GET /vehicles/:id/positions
+  query optionnel: ?limit=100
+  output: position[]
+
+2.2 Validations minimales (à faire dès le début)
+- plateNumber obligatoire, trim, unique
+- lat/lng numériques, limites: lat [-90..90], lng [-180..180]
+- status: enum simple (ex: ACTIVE/INACTIVE)
+
+2.3 Codes d’erreurs HTTP
+- 400: input invalide
+- 404: vehicle introuvable
+
+2.4 Tests manuels rapides (avant intégration gateway)
+- Créer véhicule, lister, détail
+- Enregistrer position, vérifier l’historique
+
+============================================================
+ETAPE 3 — Créer traffic-service (squelette NestJS)
+============================================================
+3.1 Créer les fichiers de base (copier le style incident-service)
+- package.json, tsconfig.json, src/main.ts, src/app.module.ts
+- module + controller + service: src/traffic/traffic.module.ts, traffic.controller.ts, traffic.service.ts
+
+3.2 Tables proposées
+- traffic_zones
+  - id SERIAL PK
+  - name TEXT UNIQUE NOT NULL
+  - bbox JSONB NOT NULL  (ex: {"minLat":..,"minLng":..,"maxLat":..,"maxLng":..})
+  - created_at TIMESTAMPTZ DEFAULT NOW()
+- traffic_metrics
+  - id SERIAL PK
+  - zone_id INT FK -> traffic_zones(id)
+  - density INT NOT NULL
+  - level TEXT NOT NULL  (FAIBLE/MOYEN/ELEVE)
+  - calculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+Note: pour MVP, une bbox JSONB est plus simple qu’un polygon GeoJSON.
+
+============================================================
+ETAPE 4 — Implémenter endpoints REST Trafic
+============================================================
+4.1 Endpoints MVP
+- POST /traffic/zones
+  input: { name, bbox: {minLat,minLng,maxLat,maxLng} }
+  output: zone
+- GET /traffic/zones
+  output: zone[]
+- GET /traffic/zones/:id
+  output: zone
+
+4.2 Calcul densité + classification
+- POST /traffic/zones/:id/calculate
+  input optionnel: { windowMinutes?: number } (default 5)
+  output: metric { zoneId, density, level, calculatedAt }
+
+4.3 Comment calculer la densité (MVP simple)
+- Le service Trafic doit connaître les positions GPS récentes.
+Choix d’intégration (à choisir):
+A) Appel HTTP vers vehicle-service (recommandé):
+- Ajouter endpoint côté vehicle-service:
+  - GET /positions/recent?minutes=5
+    output: positions[] (vehicleId, lat, lng, recordedAt)
+- traffic-service filtre les positions qui sont dans la bbox de la zone.
+
+B) Accès direct DB (rapide mais couplé):
+- traffic-service lit la table gps_positions directement.
+- Avantage: simple; inconvénient: micro-services moins “propres”.
+
+Pour un mini-projet, A ou B sont acceptables; A est plus “architecture micro-services”.
+
+4.4 Règles de classification
+- Implémenter une fonction:
+  - level = 'FAIBLE' | 'MOYEN' | 'ELEVE' selon density et seuils
+- Documenter les seuils dans services/traffic-service/README.md
+
+============================================================
+ETAPE 5 — Ajouter vehicle-service + traffic-service dans docker-compose
+============================================================
+5.1 Ajouter 2 services dans docker-compose.yml
+- build: ./services/vehicle-service
+- build: ./services/traffic-service
+- env:
+  - NODE_ENV
+  - PORT
+  - DATABASE_URL (comme les autres)
+  - VEHICLE_SERVICE_URL (si traffic-service appelle vehicle-service)
+- depends_on: postgres (condition: service_healthy)
+- ports:
+  - "4002:4002"
+  - "4005:4005"
+
+5.2 Vérifier que docker compose up -d démarre tout sans erreur
+
+============================================================
+ETAPE 6 — Intégration Gateway GraphQL (proxy REST → GraphQL)
+============================================================
+6.1 Ajouter les resolvers
+- Créer gateway/src/resolvers/vehicle.resolver.ts
+- Créer gateway/src/resolvers/traffic.resolver.ts
+- Ajouter les providers dans gateway/src/app.module.ts
+- Ajouter les variables d’env côté gateway:
+  - VEHICLE_SERVICE_URL
+  - TRAFFIC_SERVICE_URL
+
+6.2 Schéma GraphQL (MVP)
+Vehicules:
+- Query:
+  - vehicles: [Vehicle!]!
+  - vehicle(id: String!): Vehicle
+  - vehiclePositions(vehicleId: String!, limit: Int): [GpsPosition!]!
+- Mutation:
+  - createVehicle(input: CreateVehicleInput!): Vehicle!
+  - recordVehiclePosition(vehicleId: String!, input: RecordPositionInput!): GpsPosition!
+
+Trafic:
+- Query:
+  - trafficZones: [TrafficZone!]!
+  - trafficZone(id: String!): TrafficZone
+- Mutation:
+  - createTrafficZone(input: CreateTrafficZoneInput!): TrafficZone!
+  - calculateTraffic(zoneId: String!, windowMinutes: Int): TrafficMetric!
+
+6.3 Gestion erreurs
+- Si REST renvoie !ok: throw Error('...') cohérent (comme les autres resolvers)
+
+============================================================
+ETAPE 7 — Jeux de requêtes GraphQL + démo
+============================================================
+7.1 Mettre à jour GRAPHQL_TEST_QUERIES.md
+Ajouter:
+- createVehicle + list + record position + positions
+- createTrafficZone + calculateTraffic
+
+7.2 Scénario démo (ordre)
+1) créer un véhicule
+2) enregistrer plusieurs positions (dans une zone)
+3) créer une zone (bbox)
+4) calculateTraffic -> vérifier FAIBLE/MOYEN/ELEVE
+
+============================================================
+ETAPE 8 — Tests (minimum raisonnable)
+============================================================
+8.1 Tests unitaires (si vous avez le temps)
+- vehicle-service: validate lat/lng, 404, insert + list
+- traffic-service: classification thresholds, filtre bbox
+
+8.2 Tests d’intégration (optionnel)
+- Lancer docker compose + envoyer 3-4 requêtes GraphQL
+
+============================================================
+ETAPE 9 — Definition of Done (validation finale)
+============================================================
+- Les 2 services tournent en local et via docker compose.
+- Le stockage PostgreSQL fonctionne (redémarrage containers -> données persistantes).
+- Gateway expose les opérations Vehicules + Trafic via GraphQL.
+- Les règles de classification sont documentées et démontrables.
+- Un fichier de requêtes GraphQL permet de tout tester en copier/coller.
+
+Notes importantes (risques)
+- Attention à ne pas demander userId en argument dans GraphQL si vous voulez une sécurité propre.
+  (C’est la Personne A qui sécurise globalement JWT/roles, mais B doit éviter de concevoir une API “insecure by design”.)
+- Pour MVP, choisis une représentation zone simple (bbox) pour éviter la complexité GeoJSON.
