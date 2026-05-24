@@ -83,6 +83,8 @@ mutation {
 Authorization: Bearer <colle_ton_token_ici>
 ```
 
+Si cet en-tête manque ou n'est pas enregistré, `me` renvoie `null`.
+
 Par exemple:
 ```
 Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...

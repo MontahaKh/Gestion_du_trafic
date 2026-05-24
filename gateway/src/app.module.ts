@@ -3,7 +3,6 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { GraphQLModule } from '@nestjs/graphql';
 import { join } from 'path';
 import { AuthResolver } from './resolvers/auth.resolver';
-import { ApolloServerPluginLandingPageLocalDefault } from 'apollo-server-core';
 
 @Module({
   imports: [
@@ -11,8 +10,8 @@ import { ApolloServerPluginLandingPageLocalDefault } from 'apollo-server-core';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       playground: false,
-      context: ({ req }) => ({ req }),
-      plugins: [ApolloServerPluginLandingPageLocalDefault()],
+      context: ({ req }: any) => ({ req }),
+      // no plugins
     }),
   ],
   providers: [AuthResolver],
