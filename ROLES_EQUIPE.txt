@@ -1,0 +1,242 @@
+PLATEFORME DE GESTION DU TRAFIC URBAIN — ROLES & RESPONSABILITES (Equipe de 3)
+Date: 2026-05-24
+
+1) ETAT ACTUEL DU PROJET (constat rapide)
+
+Architecture (docker-compose.yml):
+- PostgreSQL (db: webservice, user: webuser/webpass)
+- gateway GraphQL (NestJS) : port 4000
+- auth-service (NestJS REST) : port 4001
+- incident-service (NestJS REST) : port 4003
+- notification-service (NestJS REST) : port 4004
+
+Gateway GraphQL (gateway/src/resolvers):
+- Auth (me, register, login) : la gateway appelle auth-service via HTTP
+- Incidents (incidents, incident, reportIncident, updateIncidentStatus) : appelle incident-service via HTTP
+- Notifications (myNotifications, sendNotification, markNotificationAsRead, markAllNotificationsAsRead) : appelle notification-service via HTTP
+
+Services REST (etat):
+- auth-service: users stockés en PostgreSQL, JWT signé (JWT_SECRET), endpoints /auth/register, /auth/login, /auth/verify
+- incident-service: incidents stockés en PostgreSQL, endpoints /incidents (POST/GET), /incidents/:id, /incidents/:id/status
+- notification-service: notifications stockées en PostgreSQL, endpoints /notifications (POST), /notifications/my, /notifications/:id/read, /notifications/read-all
+
+Services Vehicules/Trafic:
+- dossiers présents (services/vehicle-service, services/traffic-service) mais actuellement uniquement README + src/ vide (pas de service fonctionnel, pas de docker-compose, pas de gateway resolvers).
+
+Script run-all-services.bat:
+- démarre postgres + auth-service + gateway uniquement (incident-service/notification-service non démarrés par ce script).
+
+2) PRINCIPE DE REPARTITION
+
+Objectif: travailler en parallèle SANS se bloquer.
+- Personne A = “socle + sécurité + gateway + auth + standards partagés”
+- Personne B = “métier vehicules + trafic + règles de congestion + endpoints + intégration gateway”
+- Personne C = “métier incidents + notifications + qualité (tests + Postman + doc + démo)”
+
+Règle d’or d’intégration:
+- Un service métier expose d’abord des endpoints REST stables (MVP), puis la gateway ajoute les queries/mutations GraphQL qui proxy vers ces endpoints.
+
+3) DOCUMENTATION PAR PERSONNE
+
+============================================================
+PERSONNE A — Architecture, Auth, Gateway
+============================================================
+
+Mission:
+- Fournir le socle technique (exécution locale + Docker Compose), la gateway GraphQL et le service d’authentification.
+- Mettre en place la sécurité transversale (JWT + rôles) et les standards (validation, erreurs, logs).
+
+Perimetre principal dans le repo:
+- gateway/
+- services/auth-service/
+- docker-compose.yml, infra/, scripts de run
+- shared/ (standards partagés si vous les factorisez)
+
+Ce qui est deja en place (à conserver):
+- Gateway NestJS GraphQL opérationnelle (autoSchemaFile) avec resolvers Auth/Incidents/Notifications.
+- Auth service avec persistance PostgreSQL + JWT.
+
+A faire (prioritaire / MVP):
+A1. Sécuriser la gateway (JWT + rôles)
+- Objectif: ne pas dépendre d’un “userId” en argument pour les endpoints sensibles.
+- Minimum:
+  - Vérifier le JWT pour les resolvers “protégés” (incidents, notifications, etc.).
+  - Récupérer l’utilisateur depuis le token (id, role) et l’injecter dans le contexte GraphQL.
+  - Mettre en place des Guards/Decorators de rôle (ADMIN / OPERATOR).
+- Décision technique recommandée:
+  - Option 1: la gateway vérifie localement le JWT (avec JWT_SECRET) et ne fait plus d’appel /auth/verify.
+  - Option 2: la gateway garde l’appel /auth/verify mais ajoute un cache court (optionnel) et normalise l’utilisateur.
+
+A2. Standardiser les erreurs
+- Objectif: même format d’erreur côté gateway (GraphQL) et côté services (REST).
+- Minimum:
+  - Côté services: renvoyer des erreurs HTTP cohérentes (400/401/403/404) avec un payload clair.
+  - Côté gateway: mapper erreurs REST -> erreurs GraphQL (message + code)
+
+A3. Standardiser la validation
+- Objectif: éviter les entrées invalides partout.
+- Minimum:
+  - DTO + validation sur les endpoints REST (register/login/incidents/notifications)
+  - Contrats d’entrée/sortie documentés (même si simples)
+
+A4. Standards logs
+- Objectif: logs exploitables pour debug.
+- Minimum:
+  - Ajouter un format de log commun (service, route/resolver, correlation id si possible)
+
+A5. Build/run outillage
+- Mettre à jour run-all-services.bat (ou créer un équivalent) pour démarrer aussi incident-service et notification-service.
+- Ajouter un .env.example (JWT_SECRET, DATABASE_URL, URLs services) si nécessaire.
+
+Livrables attendus:
+- Gateway sécurisée (JWT + roles) + documentation d’usage (headers, exemples).
+- Auth complet (register/login/verify + rôles ADMIN/OPERATOR réellement utilisés dans les règles d’accès).
+- Standards partagés (validation/erreurs/logs) expliqués dans un court document.
+
+Checklist “Definition of Done” (Personne A):
+- Une requête protégée échoue sans header Authorization.
+- Les rôles sont testés (un OPERATOR ne peut pas faire une action ADMIN si vous en avez).
+- Les erreurs retournées sont compréhensibles et cohérentes.
+- Un exemple de flux complet (register -> login -> appel protégé) est documenté.
+
+============================================================
+PERSONNE B — Vehicules et Trafic
+============================================================
+
+Mission:
+- Implémenter le service Vehicules (flotte + positions GPS + historique).
+- Implémenter le service Trafic (zones + densité + classification).
+- Exposer les queries/mutations GraphQL via la gateway.
+
+Perimetre principal dans le repo:
+- services/vehicle-service/
+- services/traffic-service/
+- gateway/ (ajout de resolvers + types GraphQL)
+- docs/uml/ (diagrammes)
+
+Etat actuel:
+- vehicle-service et traffic-service sont des “squelettes” (pas de code NestJS complet ni d’endpoints).
+- Aucun resolver GraphQL n’existe pour ces domaines.
+
+A faire (prioritaire / MVP):
+B1. Créer un service Vehicules opérationnel (REST + PostgreSQL)
+- Modèle minimal conseillé:
+  - vehicles: id, plateNumber (ou immat), model, status, createdAt
+  - gps_positions: id, vehicle_id, lat, lng, speed?, recorded_at
+- Endpoints REST MVP (exemples):
+  - POST /vehicles (créer)
+  - GET /vehicles (lister)
+  - GET /vehicles/:id (détail)
+  - POST /vehicles/:id/positions (enregistrer position GPS)
+  - GET /vehicles/:id/positions (historique)
+
+B2. Créer un service Trafic opérationnel (REST + PostgreSQL)
+- Modèle minimal conseillé:
+  - traffic_zones: id, name, polygon/geoJson (ou simple bounding box), status
+  - traffic_metrics: zone_id, density, calculated_at
+- Endpoints REST MVP (exemples):
+  - POST /traffic/zones (créer zone)
+  - GET /traffic/zones (lister)
+  - GET /traffic/zones/:id (détail)
+  - POST /traffic/zones/:id/calculate (calcul densité)
+
+B3. Règles de classification (Faible / Moyen / Elevé)
+- Définir des seuils simples (ex: density 0-33/34-66/67-100) OU basés sur votre métrique.
+- Documenter les règles dans le README du service Trafic.
+
+B4. Intégration Gateway GraphQL
+- Ajouter des resolvers GraphQL côté gateway qui proxy les endpoints REST.
+- Mettre à jour la génération du schéma (autoSchemaFile) et proposer des exemples de queries/mutations.
+
+B5. Docker Compose / Ports
+- Ajouter vos services au docker-compose.yml (build + env + ports + depends_on postgres).
+- Choisir des ports non utilisés (ex: vehicle 4002, traffic 4005) et les documenter.
+
+Livrables attendus:
+- 2 services REST (vehicules + trafic) avec persistance PostgreSQL.
+- Règles de classification documentées.
+- Resolvers GraphQL + queries/mutations de test correspondantes.
+- Diagrammes UML (au moins: diagramme de classes simplifié + séquence “enregistrer position -> recalcul trafic”).
+
+Checklist “Definition of Done” (Personne B):
+- CRUD minimal vehicules fonctionne en local et via Docker.
+- Historique GPS persiste (reload -> données toujours là).
+- Trafic: calcul densité + classification stable et testable.
+- Gateway expose les opérations sans dépendre d’IDs “fake”.
+
+============================================================
+PERSONNE C — Incidents, Notifications, Qualite
+============================================================
+
+Mission:
+- Implémenter/compléter les services Incidents et Notifications.
+- Ajouter tests unitaires/intégration prioritaires.
+- Produire Postman, jeux de requêtes GraphQL, et support de présentation.
+
+Perimetre principal dans le repo:
+- services/incident-service/
+- services/notification-service/
+- docs/postman/, docs/graphql/
+- README.md, GRAPHQL_TEST_QUERIES.md
+
+Ce qui est deja en place (à conserver):
+- incident-service: persistance PostgreSQL + endpoints REST + validations minimales (title/status/severity)
+- notification-service: persistance PostgreSQL + endpoints REST + validations minimales
+- gateway: resolvers GraphQL pour incidents/notifications existent déjà
+- GRAPHQL_TEST_QUERIES.md contient des exemples de test utiles
+
+A faire (prioritaire / MVP):
+C1. Compléter “Incidents” selon les user stories
+- Vérifier les statuts attendus et le workflow (REPORTED -> IN_PROGRESS -> RESOLVED).
+- Ajouter les champs/filtrages nécessaires (par zone, par gravité, par période) seulement si demandé par vos US.
+
+C2. Compléter “Notifications” et cas de lecture
+- Confirmer les règles: notification liée à userId, lecture (read/unread), “mark all”.
+- Si besoin: ajouter pagination/filtre read=false (optionnel si vos US l’exigent).
+
+C3. Qualité: tests
+- Ajouter au minimum:
+  - tests de service (IncidentService: report/list/detail/updateStatus)
+  - tests NotificationService (send/list/mark read)
+- Si vous faites une intégration: test simple “API -> DB” sur PostgreSQL (TestContainers ou DB locale) selon le temps.
+
+C4. Postman + jeux GraphQL + documentation
+- Postman: collection avec environnements (local + docker compose).
+- GraphQL: fichier de queries/mutations de démo (auth -> incidents -> notifications).
+- README final: étapes de run + troubleshooting.
+
+C5. Préparer la démo
+- Scénario conseillé:
+  1) register/login
+  2) report incident + update status
+  3) send notification + mark read
+  4) (si prêt) lier notification automatiquement à un incident (bonus)
+
+Livrables attendus:
+- Services incidents/notifications robustes + tests.
+- Collection Postman utilisable.
+- Fichiers de requêtes GraphQL propres (copier/coller).
+- README final “how to run” + FAQ courte.
+
+Checklist “Definition of Done” (Personne C):
+- Les endpoints REST répondent avec des statuts HTTP cohérents.
+- Les tests passent (au moins localement).
+- Postman + GraphQL queries fonctionnent “from scratch” (DB vide).
+- Le scénario de démo est prêt et reproductible.
+
+4) POINTS D’ALIGNEMENT ENTRE LES 3 PERSONNES (a valider en 15 min)
+
+- Ports finaux des nouveaux services (vehicle, traffic) + variables d’environnement associées.
+- Politique de sécurité: quelles opérations nécessitent login, et quelles opérations nécessitent ADMIN.
+- Contrats: noms des champs (id string), statuts (enum), severities.
+- Stratégie “userId”: idéalement déduit du token, pas passé en argument.
+
+5) COMMANDES DE RUN (etat actuel)
+
+Option Docker (recommandée pour DB + services):
+- docker compose up -d
+
+Option locale (actuelle via script Windows):
+- run-all-services.bat (démarre postgres + auth-service + gateway)
+
+Note: pour tester incidents/notifications via GraphQL, il faut aussi démarrer incident-service (port 4003) et notification-service (port 4004) si vous ne passez pas par docker compose.
