@@ -127,3 +127,82 @@ query {
 | 4 | Execute **ME** query avec le header | Teste l'accès protégé |
 
 Si tout fonctionne ✅, tu verras les données utilisateur retournées avec le token valide.
+
+---
+
+## 4. TEST INCIDENTS
+
+```graphql
+mutation {
+  reportIncident(input: {
+    title: "Accident avenue principale"
+    description: "Deux voies bloquees"
+    zone: "Centre"
+    severity: "HIGH"
+    reportedBy: "1"
+  }) {
+    id
+    title
+    status
+    severity
+  }
+}
+```
+
+```graphql
+query {
+  incidents {
+    id
+    title
+    zone
+    status
+    createdAt
+  }
+}
+```
+
+```graphql
+mutation {
+  updateIncidentStatus(id: "1", status: "IN_PROGRESS") {
+    id
+    status
+    updatedAt
+  }
+}
+```
+
+## 5. TEST NOTIFICATIONS
+
+```graphql
+mutation {
+  sendNotification(input: {
+    userId: "1"
+    title: "Incident signale"
+    message: "Un incident est ouvert dans votre zone."
+  }) {
+    id
+    title
+    read
+  }
+}
+```
+
+```graphql
+query {
+  myNotifications(userId: "1") {
+    id
+    title
+    message
+    read
+  }
+}
+```
+
+```graphql
+mutation {
+  markNotificationAsRead(id: "1") {
+    id
+    read
+  }
+}
+```

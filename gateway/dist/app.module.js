@@ -12,7 +12,8 @@ const apollo_1 = require("@nestjs/apollo");
 const graphql_1 = require("@nestjs/graphql");
 const path_1 = require("path");
 const auth_resolver_1 = require("./resolvers/auth.resolver");
-const apollo_server_core_1 = require("apollo-server-core");
+const incident_resolver_1 = require("./resolvers/incident.resolver");
+const notification_resolver_1 = require("./resolvers/notification.resolver");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -24,10 +25,9 @@ exports.AppModule = AppModule = __decorate([
                 autoSchemaFile: (0, path_1.join)(process.cwd(), 'src/schema.gql'),
                 playground: false,
                 context: ({ req }) => ({ req }),
-                plugins: [(0, apollo_server_core_1.ApolloServerPluginLandingPageLocalDefault)()],
             }),
         ],
-        providers: [auth_resolver_1.AuthResolver],
+        providers: [auth_resolver_1.AuthResolver, incident_resolver_1.IncidentResolver, notification_resolver_1.NotificationResolver],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
